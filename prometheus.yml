@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 15s  # Intervalo de coleta de métricas
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']  # Prometheus monitorando a si mesmo
+
+  - job_name: 'mqtt_exporter'
+    static_configs:
+      - targets: ['mqtt_exporter:9344']  # Aponta para o mqtt_exporter no Docker
+      
+  - job_name: 'node_exporter'
+    static_configs:
+      - targets: ['node_exporter:9100']

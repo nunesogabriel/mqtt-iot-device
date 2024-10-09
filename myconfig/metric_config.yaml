@@ -1,0 +1,40 @@
+metrics:
+  - name: 'mqtt_temperature'
+    help: 'Temperatura reportada por sensores IoT'
+    type: 'gauge'
+    topic: 'iot/sensor/temperature'
+    label_configs:
+      - source_labels: ['__msg_topic__']
+        regex: 'iot/sensor/temperature/(.*)'
+        target_label: 'device'
+        action: 'replace'
+        
+  - name: 'mqtt_latency'
+    help: 'Latência do dispositivo IoT'
+    type: 'gauge'
+    topic: 'iot/sensor/latency'
+    label_configs:
+      - source_labels: ['__msg_topic__']
+        regex: 'iot/sensor/latency/(.*)'
+        target_label: 'device'
+        action: 'replace'
+
+  - name: 'mqtt_bandwidth'
+    help: 'Largura de Banda utilizada pelo dispositivo IoT'
+    type: 'gauge'
+    topic: 'iot/sensor/bandwidth'
+    label_configs:
+      - source_labels: ['__msg_topic__']
+        regex: 'iot/sensor/bandwidth/(.*)'
+        target_label: 'device'
+        action: 'replace'
+
+  - name: 'mqtt_cpu_usage'
+    help: 'Uso de CPU do dispositivo IoT'
+    type: 'gauge'
+    topic: 'iot/sensor/cpu'
+    label_configs:
+      - source_labels: ['__msg_topic__']
+        regex: 'iot/sensor/cpu/(.*)'
+        target_label: 'device'
+        action: 'replace'

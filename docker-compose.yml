@@ -9,29 +9,27 @@ services:
       - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf  # Mapeia o arquivo de configuração
       - ./mosquitto/data:/mosquitto/data  # Mapeia o diretório de dados
       - ./mosquitto/log:/mosquitto/log    # Mapeia o diretório de logs
-    networks:
-      - iot_network
 
-  mqtt_exporter:
-    image: ghcr.io/fhemberger/mqtt_exporter:latest
-    container_name: mqtt_exporter
-    volumes:
-      - ./myconfig:/usr/src/app/conf:ro  # Mapeia o diretório local com as configurações de métricas
-    ports:
-      - "9344:9344"  # Porta onde as métricas serão expostas para o Prometheus
-    networks:
-      - iot_network
-    depends_on:
-      - mosquitto
-    entrypoint: /bin/sh -c "sleep 10 && python3 /usr/src/app/mqtt_exporter.py"
+  # mqtt_exporter:
+  #   image: ghcr.io/fhemberger/mqtt_exporter:latest
+  #   container_name: mqtt_exporter
+  #   volumes:
+  #     - ./myconfig:/usr/src/app/conf:ro  # Mapeia o diretório local com as configurações de métricas
+  #   ports:
+  #     - "9344:9344"  # Porta onde as métricas serão expostas para o Prometheus
+  #   networks:
+  #     - iot_network
+  #   depends_on:
+  #     - mosquitto
+  #   entrypoint: /bin/sh -c "sleep 10 && python3 /usr/src/app/mqtt_exporter.py"
   
-  node_exporter:
-    image: prom/node-exporter
-    container_name: node_exporter
-    ports:
-      - "9100:9100"
-    networks:
-      - iot_network
+  # node_exporter:
+  #   image: prom/node-exporter
+  #   container_name: node_exporter
+  #   ports:
+  #     - "9100:9100"
+  #   networks:
+  #     - iot_network
 
   mqtt-device:
     build: .
@@ -41,8 +39,6 @@ services:
     environment:
       - BROKER=mosquitto
       - DEVICE_SCRIPT=mqtt_device.py
-    networks:
-      - iot_network
 
   http-device:
     build: .  # Caminho para o Dockerfile do dispositivo HTTP
@@ -52,8 +48,6 @@ services:
     environment:
       - CAMEL_APP_URL=http://camel-app:8080/api/v1/sensor/data  # URL da sua aplicação Camel
       - DEVICE_SCRIPT=http_device.py
-    networks:
-      - iot_network
 
   camel-app:
     image: iot-router-backend:latest  # A imagem do seu aplicativo Camel
@@ -64,29 +58,129 @@ services:
       - "8080:8080"  # Porta onde seu app Camel estará rodando
     environment:
       - SPRING_PROFILES_ACTIVE=dev
-    networks:
-      - iot_network
 
-  prometheus:
-    image: prom/prometheus
-    container_name: prometheus
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml  # Arquivo de configuração do Prometheus
-    ports:
-      - "9090:9090"  # Porta para acessar a UI do Prometheus
-    networks:
-      - iot_network
+#   prometheus:
+#     image: prom/prometheus
+#     container_name: prometheus
+#     volumes:
+#       - ./prometheus.yml:/etc/prometheus/prometheus.yml  # Arquivo de configuração do Prometheus
+#     ports:
+#       - "9090:9090"  # Porta para acessar a UI do Prometheus
+#     networks:
+#       - iot_network
 
-  grafana:
-    image: grafana/grafana
-    container_name: grafana
-    ports:
-      - "3000:3000"  # Porta para acessar o Grafana
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-    networks:
-      - iot_network
+#   grafana:
+#     image: grafana/grafana
+#     container_name: grafana
+#     ports:
+#       - "3000:3000"  # Porta para acessar o Grafana
+#     environment:
+#       - GF_SECURITY_ADMIN_PASSWORD=admin
+#     networks:
+#       - iot_network
 
-networks:
-  iot_network:
-    driver: bridge
+# networks:
+#   iot_network:
+#     driver: bridge camel-app:
+#     image: iot-router-backend:latest  # A imagem do seu aplicativo Camel
+#     container_name: camel-app
+#     depends_on:
+#       - mosquitto
+#     ports:
+#       - "8080:8080"  # Porta onde seu app Camel estará rodando
+#     environment:
+#       - SPRING_PROFILES_ACTIVE=dev
+#     networks:
+#       - iot_network
+
+#   prometheus:
+#     image: prom/prometheus
+#     container_name: prometheus
+#     volumes:
+#       - ./prometheus.yml:/etc/prometheus/prometheus.yml  # Arquivo de configuração do Prometheus
+#     ports:
+#       - "9090:9090"  # Porta para acessar a UI do Prometheus
+#     networks:
+#       - iot_network
+
+#   grafana:
+#     image: grafana/grafana
+#     container_name: grafana
+#     ports:
+#       - "3000:3000"  # Porta para acessar o Grafana
+#     environment:
+#       - GF_SECURITY_ADMIN_PASSWORD=admin
+#     networks:
+#       - iot_network
+
+# networks:
+#   iot_network:
+#     driver: bridge camel-app:
+#     image: iot-router-backend:latest  # A imagem do seu aplicativo Camel
+#     container_name: camel-app
+#     depends_on:
+#       - mosquitto
+#     ports:
+#       - "8080:8080"  # Porta onde seu app Camel estará rodando
+#     environment:
+#       - SPRING_PROFILES_ACTIVE=dev
+#     networks:
+#       - iot_network
+
+#   prometheus:
+#     image: prom/prometheus
+#     container_name: prometheus
+#     volumes:
+#       - ./prometheus.yml:/etc/prometheus/prometheus.yml  # Arquivo de configuração do Prometheus
+#     ports:
+#       - "9090:9090"  # Porta para acessar a UI do Prometheus
+#     networks:
+#       - iot_network
+
+#   grafana:
+#     image: grafana/grafana
+#     container_name: grafana
+#     ports:
+#       - "3000:3000"  # Porta para acessar o Grafana
+#     environment:
+#       - GF_SECURITY_ADMIN_PASSWORD=admin
+#     networks:
+#       - iot_network
+
+# networks:
+#   iot_network:
+#     driver: bridge camel-app:
+#     image: iot-router-backend:latest  # A imagem do seu aplicativo Camel
+#     container_name: camel-app
+#     depends_on:
+#       - mosquitto
+#     ports:
+#       - "8080:8080"  # Porta onde seu app Camel estará rodando
+#     environment:
+#       - SPRING_PROFILES_ACTIVE=dev
+#     networks:
+#       - iot_network
+
+#   prometheus:
+#     image: prom/prometheus
+#     container_name: prometheus
+#     volumes:
+#       - ./prometheus.yml:/etc/prometheus/prometheus.yml  # Arquivo de configuração do Prometheus
+#     ports:
+#       - "9090:9090"  # Porta para acessar a UI do Prometheus
+#     networks:
+#       - iot_network
+
+#   grafana:
+#     image: grafana/grafana
+#     container_name: grafana
+#     ports:
+#       - "3000:3000"  # Porta para acessar o Grafana
+#     environment:
+#       - GF_SECURITY_ADMIN_PASSWORD=admin
+#     networks:
+#       - iot_network
+
+# networks:
+#   iot_network:
+#     driver: bridge

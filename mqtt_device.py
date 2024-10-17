@@ -4,7 +4,7 @@ import time
 import random
 import psutil
 
-BROKER = "mosquitto"  # Nome do serviço Docker do broker
+BROKER = "10.0.0.237"  # Nome do serviço Docker do broker
 PORT = 1883
 TOPIC = "iot/sensor/temperature"
 TOPIC_RESPONSE = "iot/sensor/response"  # Tópico onde o dispositivo recebe a resposta
@@ -12,6 +12,7 @@ TOPIC_LATENCY = "iot/sensor/latency"
 TOPIC_BANDWIDTH = "iot/sensor/bandwidth"
 TOPIC_CPU = "iot/sensor/cpu"
 
+print('Bora')
 connected = False
 start_time = None  # Variável para medir a latência
 

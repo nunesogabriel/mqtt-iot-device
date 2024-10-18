@@ -1,0 +1,19 @@
+FROM python:3.9-slim
+
+# Instalar dependências necessárias
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    net-tools iputils-ping \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Instalar o Ryu
+RUN pip install ryu
+
+# Instalar versão compatível do Eventlet
+RUN pip install eventlet==0.30.2
+
+# Definir o diretório de trabalho
+WORKDIR /app
+
+# Comando padrão para rodar o Ryu
+CMD ["ryu-manager", "ryu.app.simple_switch_13", "ryu.app.ofctl_rest"]

@@ -1,8 +1,6 @@
 # Dockerfile para o Mosquitto com utilitários de rede
 FROM eclipse-mosquitto:latest
 
-# Instalar bash e utilitários de rede como ping e curl
 RUN apk update && apk add --no-cache bash iputils-ping curl net-tools iproute2
 
-# Comando para iniciar o Mosquitto usando o arquivo de configuração
 CMD ["mosquitto", "-c", "/mosquitto/config/mosquitto.conf"]

@@ -1,0 +1,11 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+COPY get_container_ips.py /app/get_container_ips.py
+
+RUN pip install --no-cache-dir docker flask
+
+EXPOSE 5000
+
+CMD ["python", "/app/get_container_ips.py"]

@@ -1,0 +1,40 @@
+version: '3.7'
+
+services:
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+    ports:
+      - "8888:8080"
+    networks:
+      - containernet-network
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    volumes:
+      - /home/desktop-udi-302/prometheus.yml:/etc/prometheus/prometheus.yml
+      - /home/desktop-udi-302/alert_rules.yml:/etc/prometheus/alert_rules.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - containernet-network
+
+  ip-fetcher:
+    image: container-ip-fetcher
+    container_name: ip-fetcher
+    ports:
+      - "5000:5000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - containernet-network
+
+networks:
+  containernet-network:
+    external: true

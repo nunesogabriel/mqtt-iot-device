@@ -2,10 +2,8 @@ import time
 import requests
 import os
 
-# Alterando o host para 'camel-app' em vez de 'localhost'
 camel_app_url = os.getenv('CAMEL_APP_URL', 'http://camel-app:8080/api/v1/sensor/data')
 
-# Simular dados do sensor
 sensor_data = {
     "sensorId": "sensor_http_001",
     "temperature": 25.0,
@@ -20,5 +18,4 @@ while True:
     except requests.exceptions.RequestException as e:
         print(f"Erro ao enviar dados: {e}")
     
-    # Enviar os dados a cada 10 segundos
     time.sleep(10)

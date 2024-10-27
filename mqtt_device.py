@@ -1,48 +1,44 @@
 import logging
 import paho.mqtt.client as mqtt
 import time
-import random
 import psutil
+import json 
+import threading 
 
-BROKER = "10.0.0.237"  # Nome do serviço Docker do broker
+BROKER = "10.0.0.5" 
 PORT = 1883
+TOPIC_COLLECT = "iot/sensor/collect"
 TOPIC = "iot/sensor/temperature"
-TOPIC_RESPONSE = "iot/sensor/response"  # Tópico onde o dispositivo recebe a resposta
+TOPIC_RESPONSE = "iot/sensor/response"  
 TOPIC_LATENCY = "iot/sensor/latency"
 TOPIC_BANDWIDTH = "iot/sensor/bandwidth"
 TOPIC_CPU = "iot/sensor/cpu"
 
-print('Bora')
 connected = False
-start_time = None  # Variável para medir a latência
+start_time = time.time() 
 
-# Função para simular a temperatura
-def get_temperature():
-    return round(random.uniform(10.0, 40.0), 2)
+temperature = None 
 
-# Função para medir o uso de CPU
+
 def get_cpu_usage():
     return psutil.cpu_percent(interval=1)
 
-# Função para medir o uso de memória
-def get_memory_usage():
-    memory = psutil.virtual_memory()
-    return memory.percent
-
-# Função para calcular a largura de banda
 def calculate_bandwidth(bytes_sent, bytes_received, interval):
     total_data = bytes_sent + bytes_received
-    bandwidth = total_data / interval  # Em bytes por segundo
-    return bandwidth
+    bandwidth_bps = (total_data / interval) * 8  # Convertendo para bits por segundo
+    if bandwidth_bps >= 1_000_000:
+        return round(bandwidth_bps / 1_000_000, 2), "Mbps"
+    else:
+        return round(bandwidth_bps / 1000, 2), "kbps"
 
-# Callbacks MQTT
 def on_connect(client, userdata, flags, rc):
     global connected
     if rc == 0:
         print("Connected to MQTT Broker!")
         connected = True
         client.subscribe(TOPIC_RESPONSE)  # Se inscreve no tópico de resposta
-        print(f"Subscribed to {TOPIC_RESPONSE}")
+        client.subscribe(TOPIC_COLLECT)  # Se inscreve no tópico de coleta de temperatura
+        print(f"Subscribed to {TOPIC_RESPONSE} and {TOPIC_COLLECT}")
     else:
         print(f"Failed to connect, return code {rc}")
 
@@ -52,72 +48,90 @@ def on_disconnect(client, userdata, rc):
     print("Disconnected from MQTT Broker")
 
 def on_publish(client, userdata, mid):
-    global start_time
     print(f"Message {mid} published.")
-    start_time = time.time()  # Inicia a medição de latência ao publicar a mensagem
 
+# Callback para imprimir a mensagem recebida no tópico de resposta ou coleta
 def on_message(client, userdata, message):
-    global start_time
-    end_time = time.time()  # Medição de latência termina ao receber resposta
-    latency = (end_time - start_time) * 1000  # Latência em milissegundos
-    print(f"Latência medida: {latency:.2f} ms")
-    client.publish(TOPIC_LATENCY, latency)  # Publica a latência no tópico
+    global temperature
+    if message.topic == TOPIC_COLLECT:
+        temperature = float(message.payload.decode('utf-8'))
+        print(f"Received temperature on {message.topic}: {temperature}")
+    else:
+        response_message = message.payload.decode('utf-8')
+        print(f"Received message on {message.topic}: {response_message}")
 
-# Configurar logging detalhado
 logging.basicConfig(level=logging.DEBUG)
 
-# Configurando o cliente MQTT
 client = mqtt.Client()
 
-# Definindo callbacks
 client.on_connect = on_connect
 client.on_disconnect = on_disconnect
 client.on_publish = on_publish
 client.on_message = on_message
 
-# Tentativa de conexão
 print(f"Connecting to broker {BROKER} on port {PORT}...")
 client.connect(BROKER, PORT)
 
-# Loop para manter a conexão ativa
 client.loop_start()
 
-# Espera até a conexão ser estabelecida
 while not connected:
     print("Waiting for connection...")
     time.sleep(1)
 
-# Publicando leituras de temperatura, latência, CPU e largura de banda
-try:
+def publish_data(client, thread_id):
+    global start_time, temperature
     while True:
-        # Publica a temperatura somente se fora do intervalo [15, 30]
-        temperature = get_temperature()
-        if temperature < 15 or temperature > 30:
-            print(f"Sending temperature: {temperature}°C")
-            result = client.publish(TOPIC, temperature)
-            result.wait_for_publish()  # Garante que a mensagem foi publicada
-
-        # Coleta e publica o uso de CPU
-        cpu_usage = get_cpu_usage()
-        result = client.publish(TOPIC_CPU, cpu_usage)
-        result.wait_for_publish()
-        print(f"Uso de CPU: {cpu_usage}% publicado no tópico {TOPIC_CPU}")
-
-        # Calcula e publica a largura de banda
-        current_sent = psutil.net_io_counters().bytes_sent
-        current_received = psutil.net_io_counters().bytes_recv
         current_time = time.time()
         interval = current_time - start_time
-        bandwidth = calculate_bandwidth(current_sent, current_received, interval)
-        result = client.publish(TOPIC_BANDWIDTH, bandwidth)
+
+        if temperature is not None:
+            print(f"Thread {thread_id}: Sending temperature: {temperature}°C")
+            temperature_data = json.dumps({"temperature": temperature})
+            result = client.publish(TOPIC, temperature_data)
+            result.wait_for_publish()
+        
+        cpu_usage = get_cpu_usage()
+        cpu_data = json.dumps({"cpu_usage": cpu_usage})
+        result = client.publish(TOPIC_CPU, cpu_data)
         result.wait_for_publish()
-        print(f"Largura de Banda: {bandwidth} Bps publicado no tópico {TOPIC_BANDWIDTH}")
+        print(f"Thread {thread_id}: CPU Usage: {cpu_usage}%")
 
-        # Aguardar antes da próxima medição
-        time.sleep(10)
+        current_sent = psutil.net_io_counters().bytes_sent
+        current_received = psutil.net_io_counters().bytes_recv
 
+        bandwidth, unit = calculate_bandwidth(current_sent, current_received, interval)
+        bandwidth_data = json.dumps({"bandwidth": bandwidth, "unit": unit})
+        result = client.publish(TOPIC_BANDWIDTH, bandwidth_data)
+        result.wait_for_publish()
+        print(f"Thread {thread_id}: Bandwidth: {bandwidth} {unit}")
+
+        latency = round(interval * 1000, 2)
+        latency_data = json.dumps({"latency": latency})
+        result = client.publish(TOPIC_LATENCY, latency_data)
+        result.wait_for_publish()
+        print(f"Thread {thread_id}: Latency: {latency} ms")
+
+        start_time = time.time()
+
+        time.sleep(5)
+
+def create_threads(num_threads, client):
+    threads = []
+    for i in range(num_threads):
+        thread = threading.Thread(target=publish_data, args=(client, i))
+        threads.append(thread)
+        thread.start()
+    
+NUM_THREADS = 20
+
+create_threads(NUM_THREADS, client)
+
+try:
+    while True:
+        time.sleep(1)
 except KeyboardInterrupt:
     print("Exiting...")
+
 finally:
-    client.loop_stop()  # Para o loop de background
-    client.disconnect()  # Desconecta do broker MQTT
+    client.loop_stop()
+    client.disconnect()

@@ -26,3 +26,21 @@ else
     echo "Failed to build ryu-controller image."
     exit 1
 fi
+
+echo "Building gerador image..."
+docker build -t gerador -f Dockerfile.temperature .
+if [ $? -eq 0 ]; then
+    echo "Successfully built gerador image."
+else
+    echo "Failed to build gerador image."
+    exit 1
+fi
+
+echo "Building ip-fetcher image..."
+docker build -t container-ip-fetcher -f Dockerfile.ips .
+if [ $? -eq 0 ]; then
+    echo "Successfully built container-ip-fetcher image."
+else
+    echo "Failed to build container-ip-fetcher image."
+    exit 1
+fi

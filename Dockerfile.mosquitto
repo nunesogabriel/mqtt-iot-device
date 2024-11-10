@@ -1,6 +1,8 @@
 # Dockerfile para o Mosquitto com utilitários de rede
 FROM eclipse-mosquitto:latest
 
-RUN apk update && apk add --no-cache bash iputils-ping curl net-tools iproute2
+ENV PATH="/usr/sbin:/sbin:${PATH}"
+
+RUN apk update && apk add --no-cache bash iputils-ping curl net-tools iproute2 ethtool
 
 CMD ["mosquitto", "-c", "/mosquitto/config/mosquitto.conf"]

@@ -10,12 +10,17 @@ docker network ls
 docker volume prune -f
 
 # Para remover todas as imagens, exceto cAdvisor e Prometheus
-docker images | grep -v 'gcr.io/cadvisor/cadvisor\|prom/prometheus' | awk '{if (NR!=1) print $3}' | xargs docker rmi -f
+docker images | grep -v 'gcr.io/cadvisor/cadvisor\|prom/prometheus\|redis\|grafana/grafana' | awk '{if (NR!=1) print $3}' | xargs docker rmi -f
 
 # Para remover interfaces de rede específicas
 sudo ip link delete s1-eth1
 sudo ip link delete mosq-eth0
 sudo ip link delete mqtt-eth0
+
+sudo ip link delete s1-host
+sudo ip link delete host-s1
+sudo ip link delete docker-s1
+sudo ip link delete s1-docker
 # Remova quaisquer outras interfaces criadas
 # sudo ip link delete <outra-interface>
 

@@ -1,103 +1,88 @@
-import logging
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import MAIN_DISPATCHER, CONFIG_DISPATCHER, set_ev_cls
-from ryu.ofproto import ofproto_v1_3
-from ryu.lib.packet import packet
-from ryu.lib.packet import ethernet
+from ryu.ofproto import ofproto_v1_0
+from ryu.lib.packet import packet, ethernet, ipv4, tcp, udp
 from ryu.lib.packet import ether_types
+from ryu.controller import dpset
 
-class SimpleSwitch(app_manager.RyuApp):
-    OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
+class EnhancedSwitch(app_manager.RyuApp):
+    OFP_VERSIONS = [ofproto_v1_0.OFP_VERSION]
 
     def __init__(self, *args, **kwargs):
-        super(SimpleSwitch, self).__init__(*args, **kwargs)
+        super(EnhancedSwitch, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
-        self.logger.setLevel(logging.DEBUG)  # Configurando nível de log para DEBUG
+
+    def add_flow(self, datapath, priority, match, actions):
+        """Adiciona uma regra de fluxo ao switch com suporte para OpenFlow 1.0."""
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+        mod = parser.OFPFlowMod(
+            datapath=datapath, priority=priority,
+            match=match, actions=actions)
+        datapath.send_msg(mod)
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
-        """ Configuração inicial do switch ao conectar """
         datapath = ev.msg.datapath
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
-        self.logger.info("Switch conectado: %s", datapath.id)
+        # Regra para redirecionar todo tráfego IP ao controlador
+        match_ip = parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP)
+        actions_controller = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)]
+        self.add_flow(datapath, 10, match_ip, actions_controller)
 
-        # Instalar a regra para enviar todos os pacotes para o controlador por padrão
-        match = parser.OFPMatch()
-        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER, ofproto.OFPCML_NO_BUFFER)]
-        self.add_flow(datapath, 0, match, actions)
-
-    def add_flow(self, datapath, priority, match, actions, buffer_id=None):
-        """ Função auxiliar para adicionar regras de fluxo no switch """
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
-
-        self.logger.debug("Adicionando fluxo no switch %s com prioridade %s", datapath.id, priority)
-
-        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS, actions)]
-        if buffer_id:
-            mod = parser.OFPFlowMod(datapath=datapath, buffer_id=buffer_id,
-                                    priority=priority, match=match, instructions=inst)
-        else:
-            mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
-                                    match=match, instructions=inst)
-        datapath.send_msg(mod)
+        self.logger.info("Regra para IP instalada no switch %s", datapath.id)
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def packet_in_handler(self, ev):
-        """ Lida com pacotes que chegam ao controlador """
         msg = ev.msg
         datapath = msg.datapath
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
-        in_port = msg.match['in_port']
-
+        in_port = msg.in_port
         pkt = packet.Packet(msg.data)
-        eth = pkt.get_protocols(ethernet.ethernet)[0]
+        eth = pkt.get_protocol(ethernet.ethernet)
 
-        # Evitar pacotes LLDP ou de broadcast IPv6
-        if eth.ethertype == ether_types.ETH_TYPE_LLDP:
-            self.logger.debug("Pacote LLDP ignorado no switch %s", datapath.id)
-            return
-        if eth.ethertype == ether_types.ETH_TYPE_IPV6:
-            self.logger.debug("Pacote IPv6 ignorado no switch %s", datapath.id)
-            return
+        # Loga informações básicas de MAC
+        self.logger.info("Pacote recebido: MAC origem %s -> MAC destino %s, Porta de entrada: %s",
+                         eth.src, eth.dst, in_port)
 
-        dst = eth.dst
-        src = eth.src
-
-        dpid = datapath.id
-        self.mac_to_port.setdefault(dpid, {})
-
-        self.logger.info("Pacote recebido no switch %s: origem=%s destino=%s porta=%s", dpid, src, dst, in_port)
-
-        # Aprender o MAC da porta de entrada
-        self.mac_to_port[dpid][src] = in_port
-
-        # Se o MAC de destino for conhecido, enviar o pacote para a porta correta
-        if dst in self.mac_to_port[dpid]:
-            out_port = self.mac_to_port[dpid][dst]
-            self.logger.debug("Destino conhecido. Encaminhando o pacote para a porta %s", out_port)
+        # Verifica se é um pacote IPv4
+        if eth.ethertype == ether_types.ETH_TYPE_IP:
+            ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
+            self.logger.info("Pacote IPv4: %s -> %s", ipv4_pkt.src, ipv4_pkt.dst)
+            
+            # Identifica o protocolo (TCP ou UDP)
+            if ipv4_pkt.proto == 6:  # TCP
+                tcp_pkt = pkt.get_protocol(tcp.tcp)
+                self.logger.info("Pacote TCP: %s -> %s, Porta destino: %d", ipv4_pkt.src, ipv4_pkt.dst, tcp_pkt.dst_port)
+            elif ipv4_pkt.proto == 17:  # UDP
+                udp_pkt = pkt.get_protocol(udp.udp)
+                if udp_pkt.dst_port == 1883:
+                    self.logger.info("Pacote MQTT UDP: %s -> %s, Porta destino: %d", ipv4_pkt.src, ipv4_pkt.dst, udp_pkt.dst_port)
+                else:
+                    self.logger.info("Pacote UDP: %s -> %s, Porta destino: %d", ipv4_pkt.src, ipv4_pkt.dst, udp_pkt.dst_port)
         else:
-            # Caso contrário, enviar o pacote para todas as portas (comportamento de hub)
+            self.logger.info("Pacote não-IP recebido: Tipo de Ethernet %s", eth.ethertype)
+
+        # Aprendizado de endereço MAC e encaminhamento simples
+        self.mac_to_port[datapath.id] = self.mac_to_port.get(datapath.id, {})
+        self.mac_to_port[datapath.id][eth.src] = in_port
+
+        # Encontra a porta de destino e realiza o encaminhamento ou flooding
+        if eth.dst in self.mac_to_port[datapath.id]:
+            out_port = self.mac_to_port[datapath.id][eth.dst]
+        else:
             out_port = ofproto.OFPP_FLOOD
-            self.logger.debug("Destino desconhecido. Flooding do pacote.")
 
         actions = [parser.OFPActionOutput(out_port)]
+        match = parser.OFPMatch(in_port=in_port, dl_dst=eth.dst, dl_src=eth.src)
+        self.add_flow(datapath, 1, match, actions)
 
-        # Instalar um fluxo para evitar que este pacote passe pelo controlador no futuro
-        if out_port != ofproto.OFPP_FLOOD:
-            self.logger.info("Instalando fluxo para %s -> %s no switch %s", src, dst, datapath.id)
-            match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
-            self.add_flow(datapath, 1, match, actions)
-
-        # Enviar o pacote para a saída apropriada
-        data = None
-        if msg.buffer_id == ofproto.OFP_NO_BUFFER:
-            data = msg.data
-
-        out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
-                                  in_port=in_port, actions=actions, data=data)
+        # Envia o pacote pela porta apropriada
+        out = parser.OFPPacketOut(
+            datapath=datapath, buffer_id=msg.buffer_id, in_port=in_port,
+            actions=actions, data=msg.data)
         datapath.send_msg(out)

@@ -1,16 +1,24 @@
+# Dockerfile ajustado para o Ryu Controller
+
 FROM python:3.9-slim
 
+ENV PATH="/usr/sbin:/sbin:${PATH}"
+
+# Instala as dependências do sistema, incluindo ethtool
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    net-tools iputils-ping \
+    net-tools iputils-ping ethtool \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install ryu==4.34
+# Instala Ryu e as dependências necessárias
+RUN pip install ryu==4.34 eventlet==0.30.2 protobuf oslo.config
 
-RUN pip install eventlet==0.30.2
-
+# Define o diretório de trabalho
 WORKDIR /app
 
+# Copia o script do controlador para o diretório de trabalho
 COPY ryu.py /app/ryu.py
 
-CMD ["ryu-manager", "/app/ryu.py", "ryu.app.rest_qos", "ryu.app.ofctl_rest", "ryu.app.rest_topology"]
+# Inicia o controlador com os módulos necessários
+CMD ["ryu-manager", "--ofp-tcp-listen-port", "6633", "--ofp-listen-host", "0.0.0.0", "--verbose", "/app/ryu.py", "ryu.app.rest_qos", "ryu.app.ofctl_rest", "ryu.app.rest_topology", "ryu.topology.switches"]
+# CMD ["ryu-manager", "ryu.app.simple_switch"]

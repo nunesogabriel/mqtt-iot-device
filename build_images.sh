@@ -44,3 +44,12 @@ else
     echo "Failed to build container-ip-fetcher image."
     exit 1
 fi
+
+echo "Building Redis image..."
+docker build -t my-redis -f Dockerfile.redis .
+if [ $? -eq 0 ]; then
+    echo "Successfully built my-redis image."
+else
+    echo "Failed to build my-redis image."
+    exit 1
+fi

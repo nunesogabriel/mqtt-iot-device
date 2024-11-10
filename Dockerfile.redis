@@ -1,0 +1,18 @@
+# Use a imagem oficial do Redis como base
+FROM redis:latest
+
+# Atualize o repositório de pacotes e instale net-tools e iproute2
+RUN apt-get update && \
+    apt-get install -y net-tools iproute2 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copie o arquivo de configuração customizado do Redis
+# Substitua '/path/to/your/redis.conf' pelo caminho real do arquivo de configuração
+COPY ./redis/redis.conf /usr/local/etc/redis/redis.conf
+
+# Configure o diretório de dados
+VOLUME /data
+
+# Defina o comando de inicialização padrão para o Redis usando o arquivo de configuração customizado
+CMD ["redis-server", "/usr/local/etc/redis/redis.conf"]

@@ -24,7 +24,10 @@ services:
       - "9090:9090"
     networks:
       containernet-network:
-        ipv4_address: 172.20.0.10  # IP fixo para o Redis
+        ipv4_address: 172.20.0.10
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--log.level=debug'
   
   grafana:
     image: grafana/grafana
@@ -36,19 +39,54 @@ services:
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
-  
-  # redis:
-  #   image: redis
-  #   container_name: redis-container
+
+  # elasticsearch:
+  #   image: docker.elastic.co/elasticsearch/elasticsearch:7.10.1
+  #   container_name: elasticsearch
+  #   environment:
+  #     - discovery.type=single-node
+  #     - xpack.security.enabled=false  # Desativa segurança para ambiente local
   #   ports:
-  #     - "6379:6379"
+  #     - "9200:9200"
   #   networks:
-  #     containernet-network:
-  #       ipv4_address: 172.20.0.10  # IP fixo para o Redis
+  #     - containernet-network
+
+  # logstash:
+  #   image: docker.elastic.co/logstash/logstash:7.10.1
+  #   container_name: logstash
+  #   environment:
+  #     - xpack.security.enabled=false  # Desativa segurança para ambiente local
   #   volumes:
-  #     - /home/desktop-udi-302/mqtt-iot-device/redis/redis.conf:/usr/local/etc/redis/redis.conf
-  #     - /home/desktop-udi-302/mqtt-iot-device/appendonly:/data
-  #   command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+  #     - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+  #     - /home/desktop-udi-302/Documentos:/home/desktop-udi-302/Documentos  # Monta o diretório de logs
+  #   depends_on:
+  #     - elasticsearch
+  #   networks:
+  #     - containernet-network
+  #   ports:
+  #     - "5044:5044"
+
+  # kibana:
+  #   image: docker.elastic.co/kibana/kibana:7.10.1
+  #   container_name: kibana
+  #   environment:
+  #     - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+  #   ports:
+  #     - "5601:5601"
+  #   depends_on:
+  #     - elasticsearch
+  #   networks:
+  #     - containernet-network
+  #   volumes:
+  #     - ./kibana.yml:/usr/share/kibana/config/kibana.yml
+  
+  # blackbox-exporter:
+  #   image: prom/blackbox-exporter:v0.23.0
+  #   container_name: blackbox-exporter
+  #   ports:
+  #     - "9115:9115"
+  #   networks:
+  #     - containernet-network
 
 networks:
   containernet-network:

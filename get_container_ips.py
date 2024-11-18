@@ -10,32 +10,29 @@ redis_client = redis.Redis(
     host='10.0.0.250',
     port=6379,
     decode_responses=True,
-    socket_connect_timeout=30,  # Aumenta o tempo de conexão
-    socket_timeout=120,         # Aumenta o tempo de espera por resposta
+    socket_connect_timeout=30,
+    socket_timeout=120,
     retry_on_timeout=True,
     socket_keepalive=True
-    # health_check_interval pode ser ajustado ou omitido
 )
 
 @app.route('/get_ips', methods=['GET'])
 def get_container_ips():
     try:
-        # Loga informações sobre o cliente Redis, omitindo o health_check_interval diretamente
         logging.info(f"Redis client configuration: host={redis_client.connection_pool.connection_kwargs['host']}, "
                      f"port={redis_client.connection_pool.connection_kwargs['port']}, "
                      f"socket_timeout={redis_client.connection_pool.connection_kwargs.get('socket_timeout')}")
 
-        # Executa a consulta de chaves no Redis
         container_ips = []
         for key in redis_client.keys("container:*"):
             container_data = redis_client.hgetall(key)
             container_info = {
                 "name": container_data.get('name'),
-                "ip": container_data.get('ip')
+                "ip": container_data.get('ip'),
+                "device_id": container_data.get('DEVICE_ID')
             }
             container_ips.append(container_info)
         
-        # Loga o número de chaves encontradas
         logging.info(f"Number of container keys found: {len(container_ips)}")
 
         return jsonify(container_ips)

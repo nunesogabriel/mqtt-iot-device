@@ -24,15 +24,21 @@ net = Containernet(controller=RemoteController, ipBase='10.0.0.0/24', waitConnec
 info('*** Adding Ryu Controller\n')
 c0 = net.addController('c0', controller=RemoteController, ip='172.17.0.2', port=6633)
 
-# Configurando e adicionando switch
+# Configurando e adicionando switches
 info('*** Setup network\n')
 s1 = net.addSwitch('s1', protocols="OpenFlow13")
+s2 = net.addSwitch('s2', protocols="OpenFlow13")  # Novo switch
 
 net.build()
 c0.start()
 s1.start([c0])
+s2.start([c0])  # Inicia o segundo switch
 
 s1.cmd("ovs-vsctl set Bridge s1 protocols=OpenFlow13")
+s2.cmd("ovs-vsctl set Bridge s2 protocols=OpenFlow13")  # Configura o protocolo do s2
+
+# Conecta s1 e s2
+net.addLink(s1, s2)
 
 # Constrói e inicia a rede
 subprocess.run(['ip', 'link', 'add', 's1-docker', 'type', 'veth', 'peer', 'name', 'docker-s1'])
@@ -76,113 +82,98 @@ print("Adicionando o Mosquitto broker à rede...")
 mosq = net.addDocker('mosq', dimage="custom-mosquitto",
                      dcmd="sh -c 'mosquitto -c /mosquitto/config/mosquitto.conf && tail -f /dev/null'",
                      volumes=["/home/desktop-udi-302/mqtt-iot-device/mosquitto/config:/mosquitto/config"],
-                    #  network_mode='containernet-network',
                      network_mode="none",
-                     cpu_quota=400000,
+                     cpu_quota=100000,
                      mem_limit="512m")
 print("Mosquitto adicionado com sucesso.")
 
 # Configuração de dispositivos MQTT
 print("Adicionando dispositivos MQTT à rede...")
 mqtt_devices = []
-# ips = ['10.0.0.70/24', '10.0.0.71/24', '10.0.0.72/24', '10.0.0.73/24', '10.0.0.74/24', '10.0.0.75/24', '10.0.0.76/24', '10.0.0.77/24', '10.0.0.78/24', '10.0.0.79/24']
-# for i, ip in enumerate(ips, start=1):
-#     mqtt = net.addDocker(f'mqtt{i}',
-#                         #  ip=ip,
-#                          dimage="mqtt-iot-device-mqtt-device",
-#                          dcmd="bash -c 'python /app/mqtt_device.py && while true; do sha256sum /dev/zero; done'",
-#                         #  network_mode='containernet-network',
-#                          cpu_quota=50000,
-#                          network_mode="none",
-#                          environment={"DEVICE_ID": str(uuid.uuid4())},
-#                          mem_limit="256m")
-#     mqtt_devices.append(mqtt)
-# print("Dispositivos MQTT adicionados com sucesso.")
-
-ips = ['10.0.0.70/24', '10.0.0.71/24', '10.0.0.72/24']
+ips1 = ['10.0.0.70/24', '10.0.0.71/24', '10.0.0.72/24']
+ips2 = ['10.0.0.73/24', '10.0.0.74/24']
+# ips3 = ['10.0.0.76/24', '10.0.0.77/24', '10.0.0.78/24']
+# ips4 = ['10.0.0.79/24']
+ips = ips1 + ips2
 for i, ip in enumerate(ips, start=1):
     mqtt = net.addDocker(f'mqtt{i}',
-                        #  ip=ip,
                          dimage="mqtt-iot-device-mqtt-device",
                          dcmd="bash -c 'python /app/mqtt_device.py && while true; do sha256sum /dev/zero; done'",
-                        #  network_mode='containernet-network',
-                         cpu_quota=150000,
                          network_mode="none",
+                         cpu_quota=25000,
                          environment={"DEVICE_ID": str(uuid.uuid4())},
                          mem_limit="256m")
     mqtt_devices.append(mqtt)
 print("Dispositivos MQTT adicionados com sucesso.")
 
-# Adicionando o Camel Router
-print("Adicionando Camel Router")
-# camel = net.addDocker('camel',
-#                     #    ip='10.0.0.241/24',
-#                        dimage="iot-router-backend",
-#                        network_mode="none",
-#                     #    network_mode='containernet-network',
-#                        dcmd="bash -c 'sleep 60 && java -Dspring.profiles.active=dev -jar /app/iot-router-backend.jar'")
-# print("Camel router adicionado com sucesso.")
+camel = net.addDocker('camel',
+                    #    ip='10.0.0.241/24',
+                       dimage="iot-router-backend",
+                       network_mode="none",
+                    #    network_mode='containernet-network',
+                       dcmd="bash -c 'sleep 60 && java -Dspring.profiles.active=dev -jar /app/iot-router-backend.jar'")
+print("Camel router adicionado com sucesso.")
 
 # Adicionando container gerador
 gerador = net.addDocker('gerador',
-                        # ip='10.0.0.151/24',
                         dimage="gerador",
                         network_mode="none",
                         cpu_quota=50000,
-                        # network_mode='containernet-network',
                         dcmd="bash -c 'python /app/temperature.py && while true; do sha256sum /dev/zero; done'")
 
 fetch = net.addDocker('ip-fetcher',
-                        # ip='10.0.0.149',
-                        dimage="container-ip-fetcher",
-                        ports=[5000],
-                        port_bindings={5000: 5000},
-                        cap_add=['NET_ADMIN'],
-                        network_mode="none",
-                        cpu_quota=50000,
-                        # network_mode='containernet-network',
-                        volumes=['/var/run/docker.sock:/var/run/docker.sock'],
-                        dcmd="bash -c 'python /app/get_container_ips.py && while true; do sha256sum /dev/zero; done'")
+                      dimage="container-ip-fetcher",
+                      ports=[5000],
+                      port_bindings={5000: 5000},
+                      cap_add=['NET_ADMIN'],
+                      network_mode="none",
+                      cpu_quota=50000,
+                      volumes=['/var/run/docker.sock:/var/run/docker.sock'],
+                      dcmd="bash -c 'python /app/get_container_ips.py && while true; do sha256sum /dev/zero; done'")
 
 redis_container = net.addDocker('redis',
                                 dimage="my-redis",
-                                # ip='10.0.0.250/24',
                                 dcmd="redis-server /usr/local/etc/redis/redis.conf",
                                 volumes=["/home/desktop-udi-302/mqtt-iot-device/redis/redis.conf:/usr/local/etc/redis/redis.conf", "/home/desktop-udi-302/mqtt-iot-device/appendonly:/data"])
 net.addLink(redis_container, s1)
+
+prom = net.addDocker('prom',
+                        dimage="my-prom",
+                        network_mode="none",
+                        cpu_quota=50000,
+                        dcmd="bash -c 'python /app/prometheus_api.py && while true; do sha256sum /dev/zero; done'")
   
 # Espera para estabilização dos containers
 time.sleep(15)
 
-# Conectando Mosquitto ao switch
+# Conectando Mosquitto ao switch s1
 net.addLink(mosq, s1)
 
-# Conectando dispositivos MQTT ao switch com configurações de largura de banda e latência
+# Conectando dispositivos MQTT ao switch s2
 for mqtt in mqtt_devices:
-    # net.addLink(mqtt, s1, cls=TCLink, bw=10)
-    net.addLink(mqtt, s1)
-    info(f'*** Linked {mqtt.name} to switch s1\n')
+    net.addLink(mqtt, s2)
+    info(f'*** Linked {mqtt.name} to switch s2\n')
 
-# Conectando Camel Router e Gerador com largura de banda de 100 Mbps
-# net.addLink(camel, s1)
+# Conectando Gerador e Fetch ao switch s1
+net.addLink(camel, s1)
 net.addLink(gerador, s1)
 net.addLink(fetch, s1)
+net.addLink(prom, s1)
 
 redis_container.setIP('10.0.0.250/24', intf='redis-eth0')
 mosq.setIP('10.0.0.237/24', intf='mosq-eth0')
-# camel.setIP('10.0.0.241/24', intf='camel-eth0')
+camel.setIP('10.0.0.241/24', intf='camel-eth0')
 gerador.setIP('10.0.0.151/24', intf='gerador-eth0')
+prom.setIP('10.0.0.99/24', intf='prom-eth0')
 fetch.setIP('10.0.0.149/24', intf='ip-fetcher-eth0')
 
-# ips = ['10.0.0.70/24', '10.0.0.71/24', '10.0.0.72/24', '10.0.0.73/24', '10.0.0.74/24', '10.0.0.75/24', '10.0.0.76/24', '10.0.0.77/24', '10.0.0.78/24', '10.0.0.79/24']
-ips = ['10.0.0.70/24', '10.0.0.71/24', '10.0.0.72/24']
 for mqtt, ip in zip(mqtt_devices, ips):
     mqtt.setIP(ip, intf=f'{mqtt.name}-eth0')
 
 info('*** Starting to execute commands\n')
 
-# containers = [mosq, camel, gerador, fetch] + mqtt_devices
-containers = [mosq, fetch, gerador, redis_container] + mqtt_devices
+# Lista de containers
+containers = [mosq, fetch, gerador, redis_container, camel, prom] + mqtt_devices
 
 redis_container.cmd("ip route add 10.0.0.250 dev redis-eth0")
 redis_container.cmd(f"ip route add default dev {redis_container.name}-eth0")
@@ -197,15 +188,16 @@ for container in containers:
     container.cmd(f"ip route add {RYU_INTERNAL_IP} dev {container_name}-eth0")
     # Adicionar rota para a rede 10.0.0.0/24 via interface conectada ao switch
     container.cmd(f"ip route add 10.0.0.0/24 dev {container_name}-eth0")
+    container.cmd(f"ip route add 172.20.0.0/16 via {RYU_INTERNAL_IP} dev {container_name}-eth0")
 
-    container.cmd(f"ip route add 172.20.0.0/16 via 10.0.0.220 dev {container_name}-eth0")
-
-print(redis_container.IP())  # Confirme o IP real do Redis container
+print(redis_container.IP())  # Confirme o IP real do container Redis
 redis_client = redis.Redis(host='10.0.0.250', port=6379)
 
-print("Recover containers")
+redis_client.flushall()
+
+print("Recuperando containers")
 for name, node in net.nameToNode.items():
-    if isinstance(node, Docker) and "mqtt" in name:
+    if isinstance(node, Docker):
         ip_address = node.IP()
         container_name = name
         aux = 'mn.' + container_name
@@ -223,6 +215,7 @@ for name, node in net.nameToNode.items():
 
         redis_client.hset(f"container:{container_name}", mapping=redis_data)
         print(f"Container {container_name} armazenado no Redis com IP {ip_address}")
+
 
 CLI(net)
 

@@ -5,7 +5,6 @@ WORKDIR /app
 
 ENV PATH="/usr/sbin:/sbin:${PATH}"
 
-# Instala o ethtool junto com outros pacotes necessários
 RUN apt-get update && apt-get install -y \
     iptables \
     stress-ng \

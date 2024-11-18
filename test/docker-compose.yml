@@ -1,9 +1,0 @@
-version: '3.8'
-services:
-  cpu_load_tester:
-    build: .
-    container_name: cpu_load_tester
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - TARGET_CONTAINER=mn.mqtt1

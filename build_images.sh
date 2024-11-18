@@ -53,3 +53,12 @@ else
     echo "Failed to build my-redis image."
     exit 1
 fi
+
+echo "Building Redis image..."
+docker build -t my-prom -f Dockerfile.prometheus .
+if [ $? -eq 0 ]; then
+    echo "Successfully built my-prom  image."
+else
+    echo "Failed to build my-prom  image."
+    exit 1
+fi

@@ -1,0 +1,19 @@
+groups:
+- name: container_alerts
+  rules:
+    - alert: HighContainerLatency
+      expr: rate(container_network_latency_seconds_total[1m]) > 0.25
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Alta Latência no Container"
+        description: "A latência média dos containers está acima de 250ms nos últimos 1 minuto."
+    - alert: HighBandwidthUsage
+      expr: rate(container_network_transmit_bytes_total[1m]) / container_spec_memory_limit_bytes > 0.8
+      for: 1m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Uso elevado de largura de banda"
+        description: "O uso de largura de banda do container está acima de 80% da capacidade nos últimos 1 minuto."

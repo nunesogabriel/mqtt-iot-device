@@ -1,11 +1,15 @@
-# Dockerfile para o dispositivo IoT
 FROM python:3.9-slim
 
 WORKDIR /app
 
 ENV PATH="/usr/sbin:/sbin:${PATH}"
 
+COPY get_container_ips.py /app/get_container_ips.py
+
+RUN pip install --no-cache-dir docker flask redis
+
 RUN apt-get update && apt-get install -y \
+    redis-tools \
     iptables \
     stress-ng \
     procps \
@@ -16,10 +20,8 @@ RUN apt-get update && apt-get install -y \
     mosquitto-clients \
     iperf3 \
     ethtool && \
-    rm -rf /var/lib/apt/lists/*  # Limpeza para reduzir o tamanho da imagem
+    rm -rf /var/lib/apt/lists/* 
 
-RUN pip install --no-cache-dir --upgrade requests psutil paho-mqtt
+EXPOSE 5000
 
-COPY mqtt_device.py ./
-
-CMD ["python", "/app/mqtt_device.py"]
+CMD ["python", "/app/get_container_ips.py"]

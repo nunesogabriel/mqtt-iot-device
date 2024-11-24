@@ -1,0 +1,93 @@
+version: '3.7'
+
+services:
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+    ports:
+      - "8888:8080"
+    networks:
+      - containernet-network
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    volumes:
+      - /home/desktop-udi-302/prometheus.yml:/etc/prometheus/prometheus.yml
+      - /home/desktop-udi-302/alert_rules.yml:/etc/prometheus/alert_rules.yml
+    ports:
+      - "9090:9090"
+    networks:
+      containernet-network:
+        ipv4_address: 172.20.0.10
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--log.level=debug'
+  
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - containernet-network
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+
+  # elasticsearch:
+  #   image: docker.elastic.co/elasticsearch/elasticsearch:7.10.1
+  #   container_name: elasticsearch
+  #   environment:
+  #     - discovery.type=single-node
+  #     - xpack.security.enabled=false  # Desativa segurança para ambiente local
+  #   ports:
+  #     - "9200:9200"
+  #   networks:
+  #     - containernet-network
+
+  # logstash:
+  #   image: docker.elastic.co/logstash/logstash:7.10.1
+  #   container_name: logstash
+  #   environment:
+  #     - xpack.security.enabled=false  # Desativa segurança para ambiente local
+  #   volumes:
+  #     - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+  #     - /home/desktop-udi-302/Documentos:/home/desktop-udi-302/Documentos  # Monta o diretório de logs
+  #   depends_on:
+  #     - elasticsearch
+  #   networks:
+  #     - containernet-network
+  #   ports:
+  #     - "5044:5044"
+
+  # kibana:
+  #   image: docker.elastic.co/kibana/kibana:7.10.1
+  #   container_name: kibana
+  #   environment:
+  #     - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+  #   ports:
+  #     - "5601:5601"
+  #   depends_on:
+  #     - elasticsearch
+  #   networks:
+  #     - containernet-network
+  #   volumes:
+  #     - ./kibana.yml:/usr/share/kibana/config/kibana.yml
+  
+  # blackbox-exporter:
+  #   image: prom/blackbox-exporter:v0.23.0
+  #   container_name: blackbox-exporter
+  #   ports:
+  #     - "9115:9115"
+  #   networks:
+  #     - containernet-network
+
+networks:
+  containernet-network:
+    external: true

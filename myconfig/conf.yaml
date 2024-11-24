@@ -1,13 +1,11 @@
-# Logging Configuration
 logging:
-  level: 'info'  # Pode ajustar para 'debug' para mais detalhes
+  level: 'info'
 
-# MQTT Broker Configuration
+
 mqtt:
-  host: 'mosquitto'  # Substitua pelo nome do seu serviço Mosquitto no Docker Compose ou o endereço do broker MQTT
-  port: 1883         # Porta padrão para MQTT
-  keepalive: 60      # Intervalo de keep-alive
+  host: 'mosquitto'
+  port: 1883  
+  keepalive: 60
 
-# Prometheus Configuration
 prometheus:
-  exporter_port: 9344  # Porta onde as métricas do Prometheus serão expostas
+  exporter_port: 9344

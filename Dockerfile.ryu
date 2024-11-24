@@ -12,6 +12,11 @@ RUN pip install ryu==4.34 eventlet==0.30.2 protobuf oslo.config
 #GAMBIARRA
 RUN sed -i "s/ovs.db.idl/ovsrec_row/g" /usr/local/lib/python3.9/site-packages/ryu/lib/ovs/vsctl.py 
 
+RUN sed -i "s/REST_DL_TYPE_IPV6: ether.ETH_TYPE_IPV6},/REST_DL_TYPE_IPV6: ether.ETH_TYPE_IPV6,/" /usr/local/lib/python3.9/site-packages/ryu/app/rest_qos.py && \
+    sed -i "/REST_DL_TYPE_IPV6: ether.ETH_TYPE_IPV6,/a\                 REST_DL_TYPE_LLDP: ether.ETH_TYPE_LLDP}," /usr/local/lib/python3.9/site-packages/ryu/app/rest_qos.py
+
+RUN sed -i "/REST_DL_TYPE_IPV6 = 'IPv6'/a\REST_DL_TYPE_LLDP = 'lldp'" /usr/local/lib/python3.9/site-packages/ryu/app/rest_qos.py
+
 WORKDIR /app
 
 COPY ryu.py /app/ryu.py
